@@ -7,6 +7,7 @@
 #include "Mot.h"
 #include "Joueur.h"
 #include "Network.h"
+#include <map>
 
 class Game {
 private:
@@ -21,6 +22,12 @@ private:
     std::string opponentMotCache;
     int opponentTentativesRestantes;
     std::vector<char> opponentLettresProposees;
+
+
+    bool isTournament;
+    int playerID;
+    std::map<int, int> scores; // ID du joueur et nombre de mots devinés
+    int currentPlayerID;
 
     std::string sauvegardePath;
     std::string statistiquesPath;
@@ -50,4 +57,7 @@ public:
     void chargerStatistiques();
     void sauvegarderStatistiques();
     void afficherStatistiques();
+
+    void playTournament();
+    void afficherClassement();
 };

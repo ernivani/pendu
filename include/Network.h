@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -17,17 +18,21 @@ private:
     int clientSocket;
     bool isServer;
     bool isConnected;
+    bool isTournamentMode;
 
-    // Initialisation du réseau
+    std::vector<int> clientSockets; 
+
     bool initNetwork();
 
-    // Gestion des sockets
     bool createServerSocket(int port);
     bool createClientSocket(const std::string& ip, int port);
 
-    // Envoi et réception de données
-    bool sendData(const std::string& data);
-    bool receiveData(std::string& data);
+    bool sendData(const std::string &data);
+
+    bool receiveData(std::string &data);
+
+    bool sendData(int sock, const std::string& data);
+    bool receiveData(int sock, std::string& data);
 
 public:
     Network();
@@ -35,6 +40,10 @@ public:
 
     void startServer();
     void startClient(const std::string& ip);
+
+    void startTournamentServer();
+    void acceptClients(int minClients);
+    void broadcast(const std::string& message);
 
     bool sendGameState(const std::string& gameState);
     bool receiveGameState(std::string& gameState);
@@ -46,4 +55,5 @@ public:
 
     bool isConnectedToPeer() const { return isConnected; }
     bool isServerMode() const { return isServer; }
+    bool isTournament() const { return isTournamentMode; }
 };
