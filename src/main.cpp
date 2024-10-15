@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (!network.getIsConnected()) {
+    if (!network.isConnectedToPeer()) {
         return 1;
     }
 

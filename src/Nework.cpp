@@ -136,20 +136,20 @@ bool Network::receiveData(std::string& data) {
     return true;
 }
 
-bool Network::sendLetter(char lettre) {
-    std::string data(1, lettre);
-    return sendData(data);
+bool Network::sendGameState(const std::string& gameState) {
+    return sendData(gameState);
 }
 
-bool Network::receiveLetter(char& lettre) {
-    std::string data;
-    if (receiveData(data)) {
-        if (!data.empty()) {
-            lettre = data[0];
-            return true;
-        }
-    }
-    return false;
+bool Network::receiveGameState(std::string& gameState) {
+    return receiveData(gameState);
+}
+
+bool Network::sendStats(const std::string& stats) {
+    return sendData(stats);
+}
+
+bool Network::receiveStats(std::string& stats) {
+    return receiveData(stats);
 }
 
 void Network::closeConnection() {
@@ -164,12 +164,4 @@ void Network::closeConnection() {
 #endif
         isConnected = false;
     }
-}
-
-bool Network::getIsConnected() const {
-    return isConnected;
-}
-
-bool Network::getIsServer() const {
-    return serverSocket != -1;
 }

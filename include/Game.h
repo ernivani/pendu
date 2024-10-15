@@ -17,7 +17,10 @@ private:
     int motsDevinés;
 
     Network* network;
-    bool isMyTurn;
+
+    std::string opponentMotCache;
+    int opponentTentativesRestantes;
+    std::vector<char> opponentLettresProposees;
 
     std::string sauvegardePath;
     std::string statistiquesPath;
@@ -29,6 +32,9 @@ private:
     std::string encode(const std::string& data);
     std::string decode(const std::string& data);
 
+    void envoyerEtatJeu();
+    void recevoirEtatJeu();
+
 public:
     Game(Network* net);
     ~Game();
@@ -36,12 +42,10 @@ public:
     void initGame();
     void startGame();
     void afficherEtatJeu();
+    void afficherEtatJeuAdversaire();
     char demanderLettre();
     bool estFinJeu();
     std::string choisirMotAleatoire();
-
-    void sauvegarderPartie();
-    bool chargerPartie();
 
     void chargerStatistiques();
     void sauvegarderStatistiques();

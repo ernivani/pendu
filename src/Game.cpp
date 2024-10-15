@@ -20,15 +20,11 @@ using namespace std;
 #define RED     "\033[31m"
 #define GREEN   "\033[32m"
 
-Game::Game(Network* net) : nombreCoups(0), motsDevinés(0), network(net), isMyTurn(false) {
+Game::Game(Network* net) : nombreCoups(0), motsDevinés(0), network(net) {
     std::string saveDir = getSaveDirectory();
     sauvegardePath = saveDir + "/sauvegarde.txt";
     statistiquesPath = saveDir + "/statistiques.txt";
-    motsPath = saveDir + "/mots.txt";
-
-    if (network->getIsServer()) {
-        isMyTurn = true;
-    }
+    motsPath = "mots.txt"; // Le fichier mots.txt est situé dans le répertoire courant
 
     initGame();
 }
@@ -42,6 +38,14 @@ void Game::initGame() {
     motADeviner = choisirMotAleatoire();
     mot = new Mot(motADeviner);
     joueur = new Joueur(6);
+
+    // Envoyer les statistiques au début du jeu
+    std::string stats = std::to_string(nombreCoups) + " " + std::to_string(motsDevinés);
+    network->sendStats(stats);
+
+    // Recevoir les statistiques de l'adversaire
+    std::string opponentStats;
+    network->receiveStats(opponentStats);
 }
 
 std::string Game::getSaveDirectory() {
@@ -81,7 +85,7 @@ void Game::createDirectoryIfNotExists(const std::string& path) {
 
 std::string Game::choisirMotAleatoire() {
     std::vector<std::string> mots;
-    std::ifstream fichier("mots.txt");
+    std::ifstream fichier(motsPath);
     std::string motLu;
 
     while (fichier >> motLu) {
@@ -99,7 +103,7 @@ std::string Game::choisirMotAleatoire() {
 }
 
 void Game::afficherEtatJeu() {
-    std::cout << "Mot à deviner : ";
+    std::cout << "Votre mot à deviner : ";
     std::string motCache = mot->getMotCache();
     for (char c : motCache) {
         if (c != '_') {
@@ -109,12 +113,30 @@ void Game::afficherEtatJeu() {
         }
     }
     std::cout << std::endl;
-    std::cout << "Tentatives restantes : " << joueur->getTentativesRestantes() << std::endl;
-    std::cout << "Lettres proposées : ";
+    std::cout << "Vos tentatives restantes : " << joueur->getTentativesRestantes() << std::endl;
+    std::cout << "Vos lettres proposées : ";
     for (char lettre : joueur->getLettresProposees()) {
         std::cout << lettre << " ";
     }
+    std::cout << std::endl << std::endl;
+}
+
+void Game::afficherEtatJeuAdversaire() {
+    std::cout << "Mot de l'adversaire : ";
+    for (char c : opponentMotCache) {
+        if (c != '_') {
+            std::cout << GREEN << c << RESET << " ";
+        } else {
+            std::cout << c << " ";
+        }
+    }
     std::cout << std::endl;
+    std::cout << "Tentatives restantes de l'adversaire : " << opponentTentativesRestantes << std::endl;
+    std::cout << "Lettres proposées par l'adversaire : ";
+    for (char lettre : opponentLettresProposees) {
+        std::cout << lettre << " ";
+    }
+    std::cout << std::endl << std::endl;
 }
 
 char Game::demanderLettre() {
@@ -126,79 +148,90 @@ char Game::demanderLettre() {
 
 bool Game::estFinJeu() {
     if (mot->estComplet()) {
-        std::cout << GREEN << "Félicitations ! Le mot a été deviné : " << motADeviner << RESET << std::endl;
+        std::cout << GREEN << "Félicitations ! Vous avez deviné votre mot : " << motADeviner << RESET << std::endl;
         motsDevinés++;
         return true;
     }
 
     if (joueur->getTentativesRestantes() <= 0) {
-        std::cout << RED << "Perdu ! Le mot était : " << motADeviner << RESET << std::endl;
+        std::cout << RED << "Vous avez perdu ! Votre mot était : " << motADeviner << RESET << std::endl;
+        return true;
+    }
+
+    if (opponentMotCache.find('_') == std::string::npos) {
+        std::cout << RED << "Votre adversaire a deviné son mot ! Il a gagné." << RESET << std::endl;
+        return true;
+    }
+
+    if (opponentTentativesRestantes <= 0) {
+        std::cout << GREEN << "Votre adversaire a épuisé ses tentatives. Vous avez gagné !" << RESET << std::endl;
         return true;
     }
 
     return false;
 }
 
+void Game::envoyerEtatJeu() {
+    std::ostringstream oss;
+    oss << mot->getMotCache() << "\n";
+    oss << joueur->getTentativesRestantes() << "\n";
+    for (char lettre : joueur->getLettresProposees()) {
+        oss << lettre;
+    }
+    oss << "\n";
+
+    network->sendGameState(oss.str());
+}
+
+void Game::recevoirEtatJeu() {
+    std::string data;
+    if (network->receiveGameState(data)) {
+        std::istringstream iss(data);
+        std::getline(iss, opponentMotCache);
+        std::string line;
+        std::getline(iss, line);
+        opponentTentativesRestantes = std::stoi(line);
+        std::getline(iss, line);
+        opponentLettresProposees.clear();
+        for (char c : line) {
+            opponentLettresProposees.push_back(c);
+        }
+    } else {
+        std::cerr << RED << "Erreur lors de la réception de l'état du jeu de l'adversaire." << RESET << std::endl;
+    }
+}
+
 void Game::startGame() {
+    chargerStatistiques();
     afficherStatistiques();
+
     while (true) {
         afficherEtatJeu();
+        recevoirEtatJeu();
+        afficherEtatJeuAdversaire();
 
         if (estFinJeu()) {
             network->closeConnection();
             break;
         }
 
-        if (isMyTurn) {
-            char lettre = demanderLettre();
+        char lettre = demanderLettre();
 
-            if (!joueur->proposerLettre(lettre)) {
-                std::cout << RED << "Lettre déjà proposée, essayez une autre." << RESET << std::endl;
-                continue;
-            }
-
-            nombreCoups++;
-
-            if (!mot->revelerLettre(lettre)) {
-                joueur->decrementerTentatives();
-                std::cout << RED << "Mauvaise lettre !" << RESET << std::endl;
-            } else {
-                std::cout << GREEN << "Bonne lettre !" << RESET << std::endl;
-            }
-
-            // Envoyer la lettre à l'autre joueur
-            if (!network->sendLetter(lettre)) {
-                std::cerr << RED << "Erreur lors de l'envoi de la lettre." << RESET << std::endl;
-                break;
-            }
-
-            isMyTurn = false;
-        } else {
-            std::cout << "En attente de l'autre joueur..." << std::endl;
-            char lettre;
-            if (!network->receiveLetter(lettre)) {
-                std::cerr << RED << "Erreur lors de la réception de la lettre." << RESET << std::endl;
-                break;
-            }
-
-            std::cout << "L'autre joueur a proposé la lettre : " << lettre << std::endl;
-
-            if (!joueur->proposerLettre(lettre)) {
-                std::cout << RED << "Lettre déjà proposée par l'autre joueur." << RESET << std::endl;
-                continue;
-            }
-
-            nombreCoups++;
-
-            if (!mot->revelerLettre(lettre)) {
-                joueur->decrementerTentatives();
-                std::cout << RED << "Mauvaise lettre !" << RESET << std::endl;
-            } else {
-                std::cout << GREEN << "Bonne lettre !" << RESET << std::endl;
-            }
-
-            isMyTurn = true;
+        if (!joueur->proposerLettre(lettre)) {
+            std::cout << RED << "Lettre déjà proposée, essayez une autre." << RESET << std::endl;
+            continue;
         }
+
+        nombreCoups++;
+
+        if (!mot->revelerLettre(lettre)) {
+            joueur->decrementerTentatives();
+            std::cout << RED << "Mauvaise lettre !" << RESET << std::endl;
+        } else {
+            std::cout << GREEN << "Bonne lettre !" << RESET << std::endl;
+        }
+
+        envoyerEtatJeu();
     }
     sauvegarderStatistiques();
 }
@@ -219,15 +252,6 @@ std::string Game::decode(const std::string& data) {
         c -= key;
     }
     return decoded;
-}
-
-void Game::sauvegarderPartie() {
-    // La sauvegarde n'est pas prise en charge en mode multijoueur
-}
-
-bool Game::chargerPartie() {
-    // Le chargement n'est pas pris en charge en mode multijoueur
-    return false;
 }
 
 void Game::chargerStatistiques() {
@@ -254,7 +278,7 @@ void Game::sauvegarderStatistiques() {
 }
 
 void Game::afficherStatistiques() {
-    std::cout << "Statistiques :" << std::endl;
+    std::cout << "Vos statistiques :" << std::endl;
     std::cout << "Nombre total de coups : " << nombreCoups << std::endl;
     std::cout << "Nombre de mots devinés avec succès : " << motsDevinés << std::endl << std::endl;
 }

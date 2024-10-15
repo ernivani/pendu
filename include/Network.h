@@ -18,11 +18,14 @@ private:
     bool isServer;
     bool isConnected;
 
+    // Initialisation du réseau
     bool initNetwork();
 
+    // Gestion des sockets
     bool createServerSocket(int port);
     bool createClientSocket(const std::string& ip, int port);
 
+    // Envoi et réception de données
     bool sendData(const std::string& data);
     bool receiveData(std::string& data);
 
@@ -33,9 +36,14 @@ public:
     void startServer();
     void startClient(const std::string& ip);
 
-    bool sendLetter(char lettre);
-    bool receiveLetter(char& lettre);
+    bool sendGameState(const std::string& gameState);
+    bool receiveGameState(std::string& gameState);
+
+    bool sendStats(const std::string& stats);
+    bool receiveStats(std::string& stats);
+
     void closeConnection();
-    bool getIsConnected() const;
-    bool getIsServer() const;
+
+    bool isConnectedToPeer() const { return isConnected; }
+    bool isServerMode() const { return isServer; }
 };
