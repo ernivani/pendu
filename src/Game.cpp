@@ -157,9 +157,9 @@ bool Game::estFinJeu() {
         std::cout << RED << "Vous avez perdu ! Votre mot était : " << motADeviner << RESET << std::endl;
         return true;
     }
-
-    if (opponentMotCache.find('_') == std::string::npos) {
-        std::cout << RED << "Votre adversaire a deviné son mot ! Il a gagné." << RESET << std::endl;
+    
+    if (opponentMotCache == motADeviner) {
+        std::cout << RED << "Votre adversaire a deviné son mot. Vous avez perdu !" << RESET << std::endl;
         return true;
     }
 
@@ -205,10 +205,14 @@ void Game::startGame() {
     chargerStatistiques();
     afficherStatistiques();
 
+    if (network->isServerMode()) {
+        envoyerEtatJeu();
+    } else {
+        recevoirEtatJeu();
+    }
+
     while (true) {
         afficherEtatJeu();
-        recevoirEtatJeu();
-        afficherEtatJeuAdversaire();
 
         if (estFinJeu()) {
             network->closeConnection();
@@ -232,6 +236,14 @@ void Game::startGame() {
         }
 
         envoyerEtatJeu();
+
+        recevoirEtatJeu();
+
+        if (estFinJeu()) {
+            network->closeConnection();
+            break;
+        }
+
     }
     sauvegarderStatistiques();
 }

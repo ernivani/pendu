@@ -1,28 +1,29 @@
 #include "Network.h"
 #include "Game.h"
-#include <cstring>
 #include <iostream>
+#include <string>
 
-int main(int argc, char* argv[]) {
+int main() {
     Network network;
-    const char* defaultIp = "127.0.0.1";
-    const char* ip = defaultIp;
+    std::string ip;
+    std::string choice;
 
-    if (argc > 1) {
-        if (std::strcmp(argv[1], "-s") == 0) {
+    for (;;) {
+        std::cout << "Voulez-vous être serveur ou client ? (s/c) : ";
+        std::cin >> choice;
+
+        if (choice == "s") {
             network.startServer();
-        } else if (std::strcmp(argv[1], "-c") == 0) {
-            if (argc > 2) {
-                ip = argv[2];
-            }
+            break;
+        } else if (choice == "c") {
+            std::cout << "Entrez l'adresse IP du serveur : (default: 127.0.0.1) ";
+            std::getline(std::cin >> std::ws, ip);
+            std::cout << "ip: " << ip.empty() << std::endl;
             network.startClient(ip);
+            break;
         } else {
-            std::cout << "Utilisation : " << argv[0] << " [-s | -c <adresse_ip>]" << std::endl;
-            return 1;
+            std::cout << "Choix invalide. Veuillez entrer 's' pour serveur ou 'c' pour client." << std::endl;
         }
-    } else {
-        std::cout << "Utilisation : " << argv[0] << " [-s | -c <adresse_ip>]" << std::endl;
-        return 1;
     }
 
     if (!network.isConnectedToPeer()) {
